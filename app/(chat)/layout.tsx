@@ -12,10 +12,12 @@ import { auth } from "../(auth)/auth";
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <Script
-        src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"
-        strategy="lazyOnload"
-      />
+      {process.env.PLAYWRIGHT_TEST !== "1" && (
+        <Script
+          src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"
+          strategy="lazyOnload"
+        />
+      )}
       <DataStreamProvider>
         <Suspense fallback={<div className="flex h-dvh bg-sidebar" />}>
           <SidebarShell>{children}</SidebarShell>
