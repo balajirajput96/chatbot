@@ -99,6 +99,7 @@ export default defineConfig({
     reuseExistingServer: true,
     env: {
       AUTH_SECRET: process.env.AUTH_SECRET || "playwright-local-test-secret",
+      PLAYWRIGHT_TEST: "1",
     },
   },
 });
