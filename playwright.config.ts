@@ -56,6 +56,7 @@ export default defineConfig({
       testMatch: /e2e\/.*.test.ts/,
       use: {
         ...devices["Desktop Chrome"],
+        channel: "chromium",
       },
     },
 
@@ -95,7 +96,7 @@ export default defineConfig({
     command: "pnpm dev",
     url: `${baseURL}/ping`,
     timeout: 120 * 1000,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: true,
     env: {
       AUTH_SECRET: process.env.AUTH_SECRET || "playwright-local-test-secret",
     },
