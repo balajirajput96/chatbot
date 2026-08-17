@@ -57,6 +57,14 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         channel: "chromium",
+        launchOptions: {
+          args: [
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+            "--disable-software-rasterizer",
+            "--no-zygote",
+          ],
+        },
       },
     },
 
