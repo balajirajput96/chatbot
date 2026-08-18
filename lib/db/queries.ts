@@ -16,6 +16,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import type { ArtifactKind } from "@/components/chat/artifact";
 import type { VisibilityType } from "@/components/chat/visibility-selector";
+import { isTestEnvironment } from "../constants";
 import { ChatbotError } from "../errors";
 import { generateUUID } from "../utils";
 import {
@@ -35,6 +36,14 @@ import { generateHashedPassword } from "./utils";
 
 const client = postgres(process.env.POSTGRES_URL ?? "");
 const db = drizzle(client);
+const useInMemoryTestStore = isTestEnvironment && !process.env.POSTGRES_URL;
+const inMemoryTestChats = new Map<string, Chat>();
+const inMemoryTestMessages = new Map<string, DBMessage[]>();
+
+const testGuestUser = () => {
+  const id = generateUUID();
+  return [{ id, email: `guest-${Date.now()}` }];
+};
 
 export async function getUser(email: string): Promise<User[]> {
   try {
@@ -58,6 +67,10 @@ export async function createUser(email: string, password: string) {
 }
 
 export async function createGuestUser() {
+  if (useInMemoryTestStore) {
+    return testGuestUser();
+  }
+
   const email = `guest-${Date.now()}`;
   const password = generateHashedPassword(generateUUID());
 
@@ -85,6 +98,17 @@ export async function saveChat({
   title: string;
   visibility: VisibilityType;
 }) {
+  if (useInMemoryTestStore) {
+    inMemoryTestChats.set(id, {
+      id,
+      createdAt: new Date(),
+      userId,
+      title,
+      visibility,
+    });
+    return;
+  }
+
   try {
     return await db.insert(chat).values({
       id,
@@ -99,6 +123,13 @@ export async function saveChat({
 }
 
 export async function deleteChatById({ id }: { id: string }) {
+  if (useInMemoryTestStore) {
+    const deleted = inMemoryTestChats.get(id);
+    inMemoryTestChats.delete(id);
+    inMemoryTestMessages.delete(id);
+    return deleted;
+  }
+
   try {
     await db.delete(vote).where(eq(vote.chatId, id));
     await db.delete(message).where(eq(message.chatId, id));
@@ -160,6 +191,16 @@ export async function getChatsByUserId({
   endingBefore: string | null;
 }) {
   try {
+    if (useInMemoryTestStore) {
+      const userChats = [...inMemoryTestChats.values()]
+        .filter((chat) => chat.userId === id)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      return {
+        chats: userChats.slice(0, limit),
+        hasMore: userChats.length > limit,
+      };
+    }
+
     const extendedLimit = limit + 1;
 
     const query = (whereCondition?: SQL<unknown>) =>
@@ -225,6 +266,10 @@ export async function getChatsByUserId({
 }
 
 export async function getChatById({ id }: { id: string }) {
+  if (useInMemoryTestStore) {
+    return inMemoryTestChats.get(id) ?? null;
+  }
+
   try {
     const [selectedChat] = await db.select().from(chat).where(eq(chat.id, id));
     if (!selectedChat) {
@@ -238,6 +283,23 @@ export async function getChatById({ id }: { id: string }) {
 }
 
 export async function saveMessages({ messages }: { messages: DBMessage[] }) {
+  if (useInMemoryTestStore) {
+    for (const currentMessage of messages) {
+      const chatMessages =
+        inMemoryTestMessages.get(currentMessage.chatId) ?? [];
+      const existingIndex = chatMessages.findIndex(
+        (item) => item.id === currentMessage.id
+      );
+      if (existingIndex >= 0) {
+        chatMessages[existingIndex] = currentMessage;
+      } else {
+        chatMessages.push(currentMessage);
+      }
+      inMemoryTestMessages.set(currentMessage.chatId, chatMessages);
+    }
+    return;
+  }
+
   try {
     return await db.insert(message).values(messages);
   } catch (_error) {
@@ -252,6 +314,17 @@ export async function updateMessage({
   id: string;
   parts: DBMessage["parts"];
 }) {
+  if (useInMemoryTestStore) {
+    for (const chatMessages of inMemoryTestMessages.values()) {
+      const existing = chatMessages.find((item) => item.id === id);
+      if (existing) {
+        existing.parts = parts;
+        return;
+      }
+    }
+    return;
+  }
+
   try {
     return await db.update(message).set({ parts }).where(eq(message.id, id));
   } catch (_error) {
@@ -260,6 +333,12 @@ export async function updateMessage({
 }
 
 export async function getMessagesByChatId({ id }: { id: string }) {
+  if (useInMemoryTestStore) {
+    return [...(inMemoryTestMessages.get(id) ?? [])].sort(
+      (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
+    );
+  }
+
   try {
     return await db
       .select()
@@ -553,6 +632,14 @@ export async function updateChatTitleById({
   chatId: string;
   title: string;
 }) {
+  if (useInMemoryTestStore) {
+    const currentChat = inMemoryTestChats.get(chatId);
+    if (currentChat) {
+      currentChat.title = title;
+    }
+    return;
+  }
+
   try {
     return await db.update(chat).set({ title }).where(eq(chat.id, chatId));
   } catch (_error) {
@@ -567,6 +654,18 @@ export async function getMessageCountByUserId({
   id: string;
   differenceInHours: number;
 }) {
+  if (useInMemoryTestStore) {
+    const cutoffTime = Date.now() - differenceInHours * 60 * 60 * 1000;
+    return [...inMemoryTestChats.values()]
+      .filter((chat) => chat.userId === id)
+      .flatMap((chat) => inMemoryTestMessages.get(chat.id) ?? [])
+      .filter(
+        (currentMessage) =>
+          currentMessage.role === "user" &&
+          currentMessage.createdAt.getTime() >= cutoffTime
+      ).length;
+  }
+
   try {
     const cutoffTime = new Date(
       Date.now() - differenceInHours * 60 * 60 * 1000
