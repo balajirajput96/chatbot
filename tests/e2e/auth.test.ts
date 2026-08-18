@@ -5,7 +5,7 @@ test.describe("Authentication Pages", () => {
     await page.goto("/login");
     await expect(page.getByPlaceholder("you@someo.ne")).toBeVisible();
     await expect(page.getByLabel("Password")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Sign In" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
     await expect(page.getByText("No account?")).toBeVisible();
   });
 
@@ -13,7 +13,7 @@ test.describe("Authentication Pages", () => {
     await page.goto("/register");
     await expect(page.getByPlaceholder("you@someo.ne")).toBeVisible();
     await expect(page.getByLabel("Password")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Sign Up" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sign up" })).toBeVisible();
     await expect(page.getByText("Have an account?")).toBeVisible();
   });
 
