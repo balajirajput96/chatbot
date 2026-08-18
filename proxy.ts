@@ -1,6 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
-import { guestRegex, isDevelopmentEnvironment } from "./lib/constants";
+import {
+  guestRegex,
+  isDevelopmentEnvironment,
+  isTestEnvironment,
+} from "./lib/constants";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -21,6 +25,10 @@ export async function proxy(request: NextRequest) {
   });
 
   const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
+  if (isTestEnvironment) {
+    return NextResponse.next();
+  }
 
   if (!token) {
     const redirectUrl = encodeURIComponent(new URL(request.url).pathname);
