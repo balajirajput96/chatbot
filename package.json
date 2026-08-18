@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
-    "build": "tsx lib/db/migrate && next build --webpack",
+    "build": "tsx lib/db/migrate && NODE_OPTIONS=--max-old-space-size=1536 next build --webpack",
     "start": "next start",
     "check": "ultracite check",
     "fix": "ultracite fix",
@@ -15,7 +15,7 @@
     "db:pull": "drizzle-kit pull",
     "db:check": "drizzle-kit check",
     "db:up": "drizzle-kit up",
-    "test": "export PLAYWRIGHT=True && pnpm exec playwright test"
+    "test": "pnpm run build && PLAYWRIGHT=True PLAYWRIGHT_PRODUCTION=1 pnpm exec playwright test"
   },
   "dependencies": {
     "@ai-sdk/provider": "^3.0.3",

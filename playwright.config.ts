@@ -18,6 +18,7 @@ const PORT = process.env.PORT || 3000;
  * of the WebServer respecting the correct set port
  */
 const baseURL = `http://localhost:${PORT}`;
+const useProductionServer = process.env.PLAYWRIGHT_PRODUCTION === "1";
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -96,13 +97,16 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: "pnpm exec next dev --webpack",
+    command: useProductionServer
+      ? "pnpm start"
+      : "pnpm exec next dev --webpack",
     url: `${baseURL}/ping`,
     timeout: 120 * 1000,
     reuseExistingServer: true,
     env: {
       AUTH_SECRET: process.env.AUTH_SECRET || "playwright-local-test-secret",
       PLAYWRIGHT_TEST: "1",
+      PLAYWRIGHT_PRODUCTION: useProductionServer ? "1" : "0",
       NODE_OPTIONS: "--max-old-space-size=1536",
     },
   },
