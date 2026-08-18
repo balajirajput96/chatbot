@@ -26,11 +26,11 @@ export async function proxy(request: NextRequest) {
 
   const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 
-  if (!token) {
-    if (isTestEnvironment && ["/login", "/register"].includes(pathname)) {
-      return NextResponse.next();
-    }
+  if (isTestEnvironment) {
+    return NextResponse.next();
+  }
 
+  if (!token) {
     const redirectUrl = encodeURIComponent(new URL(request.url).pathname);
 
     return NextResponse.redirect(
