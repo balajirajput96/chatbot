@@ -25,13 +25,13 @@ const baseURL = `http://localhost:${PORT}`;
 export default defineConfig({
   testDir: "./tests",
   /* Run tests in files in parallel */
-  fullyParallel: true,
+  fullyParallel: false,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: 0,
   /* Limit workers to prevent browser crashes */
-  workers: process.env.CI ? 2 : 2,
+  workers: 1,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: "html",
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
@@ -41,6 +41,10 @@ export default defineConfig({
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: "retain-on-failure",
+    launchOptions: {
+      channel: "chromium",
+      args: ["--disable-dev-shm-usage", "--disable-gpu", "--no-zygote"],
+    },
   },
 
   /* Configure global timeout for each test */
@@ -56,15 +60,6 @@ export default defineConfig({
       testMatch: /e2e\/.*.test.ts/,
       use: {
         ...devices["Desktop Chrome"],
-        channel: "chromium",
-        launchOptions: {
-          args: [
-            "--disable-dev-shm-usage",
-            "--disable-gpu",
-            "--disable-software-rasterizer",
-            "--no-zygote",
-          ],
-        },
       },
     },
 
@@ -101,13 +96,14 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: "pnpm dev",
+    command: "pnpm exec next dev --webpack",
     url: `${baseURL}/ping`,
     timeout: 120 * 1000,
     reuseExistingServer: true,
     env: {
       AUTH_SECRET: process.env.AUTH_SECRET || "playwright-local-test-secret",
       PLAYWRIGHT_TEST: "1",
+      NODE_OPTIONS: "--max-old-space-size=1536",
     },
   },
 });
