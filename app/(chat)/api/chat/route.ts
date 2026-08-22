@@ -25,7 +25,7 @@ import { editDocument } from "@/lib/ai/tools/edit-document";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
-import { isProductionEnvironment } from "@/lib/constants";
+import { isProductionEnvironment, isTestEnvironment } from "@/lib/constants";
 import {
   createStreamId,
   deleteChatById,
@@ -113,7 +113,9 @@ export async function POST(request: Request) {
         title: "New chat",
         visibility: selectedVisibilityType,
       });
-      titlePromise = generateTitleFromUserMessage({ message });
+      titlePromise = isTestEnvironment
+        ? Promise.resolve("Test response")
+        : generateTitleFromUserMessage({ message });
     }
 
     let uiMessages: ChatMessage[];
@@ -179,7 +181,7 @@ export async function POST(request: Request) {
     }
 
     const modelConfig = chatModels.find((m) => m.id === chatModel);
-    const modelCapabilities = await getCapabilities();
+    const modelCapabilities = isTestEnvironment ? {} : await getCapabilities();
     const capabilities = modelCapabilities[chatModel];
     const isReasoningModel = capabilities?.reasoning === true;
     const supportsTools = capabilities?.tools === true;
@@ -189,6 +191,24 @@ export async function POST(request: Request) {
     const stream = createUIMessageStream({
       originalMessages: isToolApprovalFlow ? uiMessages : undefined,
       execute: async ({ writer: dataStream }) => {
+        if (isTestEnvironment) {
+          const textId = generateUUID();
+          dataStream.write({ type: "text-start", id: textId });
+          dataStream.write({
+            type: "text-delta",
+            id: textId,
+            delta: "Test response",
+          });
+          dataStream.write({ type: "text-end", id: textId });
+
+          if (titlePromise) {
+            const title = await titlePromise;
+            dataStream.write({ type: "data-chat-title", data: title });
+            await updateChatTitleById({ chatId: id, title });
+          }
+          return;
+        }
+
         const result = streamText({
           model: getLanguageModel(chatModel),
           system: systemPrompt({ requestHints, supportsTools }),
