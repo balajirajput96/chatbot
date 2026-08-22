@@ -13,6 +13,16 @@ test.describe("Chat Page", () => {
     await expect(input).toHaveValue("Hello world");
   });
 
+  test("shows a deterministic response without an external AI provider", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.getByTestId("multimodal-input").fill("Hello");
+    await page.getByTestId("send-button").click();
+
+    await expect(page.getByText("Test response").last()).toBeVisible();
+  });
+
   test("submit button is visible", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByTestId("send-button")).toBeVisible();
