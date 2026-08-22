@@ -55,6 +55,24 @@ function getStreamContext() {
   }
 }
 
+function createDeterministicTestResponse() {
+  const stream = createUIMessageStream({
+    execute: ({ writer }) => {
+      const textId = generateUUID();
+      writer.write({ type: "text-start", id: textId });
+      writer.write({
+        type: "text-delta",
+        id: textId,
+        delta: "Test response",
+      });
+      writer.write({ type: "text-end", id: textId });
+    },
+    generateId: generateUUID,
+  });
+
+  return createUIMessageStreamResponse({ stream });
+}
+
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
 
@@ -63,6 +81,10 @@ export async function POST(request: Request) {
     requestBody = postRequestBodySchema.parse(json);
   } catch (_) {
     return new ChatbotError("bad_request:api").toResponse();
+  }
+
+  if (isTestEnvironment) {
+    return createDeterministicTestResponse();
   }
 
   try {
@@ -113,9 +135,7 @@ export async function POST(request: Request) {
         title: "New chat",
         visibility: selectedVisibilityType,
       });
-      titlePromise = isTestEnvironment
-        ? Promise.resolve("Test response")
-        : generateTitleFromUserMessage({ message });
+      titlePromise = generateTitleFromUserMessage({ message });
     }
 
     let uiMessages: ChatMessage[];
@@ -181,7 +201,7 @@ export async function POST(request: Request) {
     }
 
     const modelConfig = chatModels.find((m) => m.id === chatModel);
-    const modelCapabilities = isTestEnvironment ? {} : await getCapabilities();
+    const modelCapabilities = await getCapabilities();
     const capabilities = modelCapabilities[chatModel];
     const isReasoningModel = capabilities?.reasoning === true;
     const supportsTools = capabilities?.tools === true;
@@ -191,24 +211,6 @@ export async function POST(request: Request) {
     const stream = createUIMessageStream({
       originalMessages: isToolApprovalFlow ? uiMessages : undefined,
       execute: async ({ writer: dataStream }) => {
-        if (isTestEnvironment) {
-          const textId = generateUUID();
-          dataStream.write({ type: "text-start", id: textId });
-          dataStream.write({
-            type: "text-delta",
-            id: textId,
-            delta: "Test response",
-          });
-          dataStream.write({ type: "text-end", id: textId });
-
-          if (titlePromise) {
-            const title = await titlePromise;
-            dataStream.write({ type: "data-chat-title", data: title });
-            await updateChatTitleById({ chatId: id, title });
-          }
-          return;
-        }
-
         const result = streamText({
           model: getLanguageModel(chatModel),
           system: systemPrompt({ requestHints, supportsTools }),
